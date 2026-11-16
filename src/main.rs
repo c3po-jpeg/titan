@@ -3,9 +3,12 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 use math::vec3::Vec3;
 
+mod hitlist;
+mod hittable;
 mod ray;
+mod sphere;
 
-use crate::ray::Ray;
+use crate::{hitlist::HitList, hittable::Hittable, ray::Ray, sphere::Sphere};
 
 const WIDTH: u32 = 800;
 const ASPECT_RATIO: f32 = 16.0 / 9.0;
@@ -18,9 +21,13 @@ const VIEWPORT_WIDTH: f32 = VIEWPORT_HEIGHT * (WIDTH as f32 / HEIGHT as f32);
 const FOCAL_LENGTH: f32 = 1.0;
 
 // background color based on ray direction
-fn ray_color(ray: &Ray) -> Rgb<u8> {
-    if hit_sphere(ray, Vec3::new(0.0, 0.0, -1.0), 0.5) {
-        return Rgb([255, 0, 0]);
+fn ray_color(ray: &Ray, world: &HitList) -> Rgb<u8> {
+    if let Some(rec) = world.hit(ray, 0.0, f32::INFINITY) {
+        return Rgb([
+            (rec.normal.x * 255.0) as u8,
+            (rec.normal.y * 255.0) as u8,
+            (rec.normal.z * 255.0) as u8,
+        ]);
     }
 
     let dir = ray.direction.normalize();
@@ -36,24 +43,17 @@ fn ray_color(ray: &Ray) -> Rgb<u8> {
     ])
 }
 
-fn hit_sphere(ray: &Ray, center: Vec3, radius: f32) -> bool {
-    let oc = ray.origin - center;
-    let a = Vec3::dot(&ray.direction, &ray.direction);
-    let b = 2.0 * Vec3::dot(&oc, &ray.direction);
-    let c = Vec3::dot(&oc, &oc) - radius * radius;
-    let discriminant = b * b - 4.0 * a * c;
-
-    if discriminant >= 0.0 {
-        return true;
-    }
-    false
-}
-
 fn main() {
     let eye = Vec3::new(0.0, 0.0, 1.0);
     let horizontal = Vec3::new(VIEWPORT_WIDTH, 0.0, 0.0);
     let vertical = Vec3::new(0.0, VIEWPORT_HEIGHT, 0.0);
     let top_left = eye - (horizontal * 0.5) + (vertical * 0.5) - Vec3::new(0.0, 0.0, FOCAL_LENGTH);
+
+    // world
+
+    let mut world = HitList::default();
+    world.add(Box::new(Sphere::new(-Vec3::Z, 0.5)));
+    world.add(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
 
     let mut img = RgbImage::new(WIDTH, HEIGHT);
 
@@ -69,7 +69,7 @@ fn main() {
         let u = x as f32 / (WIDTH - 1) as f32;
         let v = y as f32 / (HEIGHT - 1) as f32;
         let ray = Ray::new(eye, top_left + (horizontal * u) - (vertical * v) - eye);
-        *pixel = ray_color(&ray);
+        *pixel = ray_color(&ray, &world);
 
         progress.inc(1);
     }
