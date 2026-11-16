@@ -3,22 +3,18 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 use math::vec3::Vec3;
 
+mod camera;
 mod hitlist;
 mod hittable;
 mod ray;
 mod sphere;
 
-use crate::{hitlist::HitList, hittable::Hittable, ray::Ray, sphere::Sphere};
+use crate::{camera::Camera, hitlist::HitList, hittable::Hittable, ray::Ray, sphere::Sphere};
 
-const WIDTH: u32 = 800;
+const WIDTH: u32 = 1600;
 const ASPECT_RATIO: f32 = 16.0 / 9.0;
 const HEIGHT: u32 = (WIDTH as f32 / ASPECT_RATIO) as u32;
 const TOTAL: u32 = WIDTH * HEIGHT;
-
-const VIEWPORT_HEIGHT: f32 = 2.0;
-const VIEWPORT_WIDTH: f32 = VIEWPORT_HEIGHT * (WIDTH as f32 / HEIGHT as f32);
-
-const FOCAL_LENGTH: f32 = 1.0;
 
 // background color based on ray direction
 fn ray_color(ray: &Ray, world: &HitList) -> Rgb<u8> {
@@ -44,13 +40,9 @@ fn ray_color(ray: &Ray, world: &HitList) -> Rgb<u8> {
 }
 
 fn main() {
-    let eye = Vec3::new(0.0, 0.0, 1.0);
-    let horizontal = Vec3::new(VIEWPORT_WIDTH, 0.0, 0.0);
-    let vertical = Vec3::new(0.0, VIEWPORT_HEIGHT, 0.0);
-    let top_left = eye - (horizontal * 0.5) + (vertical * 0.5) - Vec3::new(0.0, 0.0, FOCAL_LENGTH);
+    let camera = Camera::new(Vec3::Z, 1.0, 2.0, WIDTH as f32 / HEIGHT as f32);
 
     // world
-
     let mut world = HitList::default();
     world.add(Box::new(Sphere::new(-Vec3::Z, 0.5)));
     world.add(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
@@ -68,8 +60,7 @@ fn main() {
     for (x, y, pixel) in img.enumerate_pixels_mut() {
         let u = x as f32 / (WIDTH - 1) as f32;
         let v = y as f32 / (HEIGHT - 1) as f32;
-        let ray = Ray::new(eye, top_left + (horizontal * u) - (vertical * v) - eye);
-        *pixel = ray_color(&ray, &world);
+        *pixel = ray_color(&camera.ray(u, v), &world);
 
         progress.inc(1);
     }
